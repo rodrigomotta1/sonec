@@ -367,12 +367,35 @@ def query(
         return qs_page
 
     # Projection helper
-    def row_to_dict(p: Post) -> dict[str, Any]:
+    def row_to_dict(p: Any) -> dict[str, Any]:
+        """Project a Post ORM object into a serializable dictionary.
+
+        Parameters
+        ----------
+        p:
+            ORM row for the ``Post`` model. The type is annotated as ``Any``
+            to accommodate Django's dynamic ``*_id`` attributes for foreign
+            keys in static analysis tools.
+
+        Returns
+        -------
+        dict[str, Any]
+            Mapping with the canonical fields used by the query output.
+        """
+
+        provider_value: Any = getattr(p, "provider_id", None)
+        if provider_value is None and getattr(p, "provider", None) is not None:
+            provider_value = getattr(p.provider, "pk", None)
+
+        author_value: Any = getattr(p, "author_id", None)
+        if author_value is None and getattr(p, "author", None) is not None:
+            author_value = getattr(p.author, "pk", None)
+
         base = {
             "id": p.id,
-            "provider": p.provider_id,
+            "provider": provider_value,
             "external_id": p.external_id,
-            "author_id": p.author_id,
+            "author_id": author_value,
             "created_at": p.created_at,
             "text": p.text,
             "lang": p.lang,
