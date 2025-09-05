@@ -1,8 +1,8 @@
-"""Minimal CLI placeholder for entry point compatibility.
+"""Command-line interface entry point module.
 
-The CLI is not part of the initial implementation phase. This file exists
-to satisfy the configured entry point in ``pyproject.toml`` and will be
-extended in later iterations.
+This module exposes the executable entry point registered in
+``pyproject.toml``. The high-level command surface is intentionally
+minimal at this stage; users should prefer the Python API.
 """
 
 from __future__ import annotations
@@ -32,4 +32,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation only
     raise SystemExit(main())
-

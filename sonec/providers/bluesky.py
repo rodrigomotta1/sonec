@@ -1,8 +1,7 @@
-"""Bluesky provider skeleton.
+"""Bluesky provider module.
 
-This module will implement the Bluesky provider using the public endpoints
-and return normalized batches according to the provider contract. The
-current implementation serves as a scaffold for subsequent work.
+Defines the interface for integration with Bluesky endpoints and the
+normalization contract for returned batches.
 """
 
 from __future__ import annotations
@@ -22,7 +21,19 @@ class BlueskyProvider(Provider):
 
     NAME = "bluesky"
 
-    def configure(self, options: ProviderOptions) -> ProviderSession:  # pragma: no cover - placeholder
+    def configure(self, options: ProviderOptions) -> ProviderSession:  # pragma: no cover
+        """Initialize a Bluesky provider session.
+
+        Parameters
+        ----------
+        options:
+            Provider options with optional authentication and HTTP hints.
+
+        Returns
+        -------
+        ProviderSession
+            Session metadata including declared capabilities.
+        """
         capabilities: dict[str, object] = {
             "supports_cursor": True,
             "supports_search_q": True,
@@ -42,6 +53,21 @@ class BlueskyProvider(Provider):
             warnings=[],
         )
 
-    def fetch_since(self, cursor: str | None, limit: int, filters: Mapping[str, object]) -> FetchBatch:  # pragma: no cover - placeholder
-        raise NotImplementedError("BlueskyProvider.fetch_since is not implemented yet.")
+    def fetch_since(self, cursor: str | None, limit: int, filters: Mapping[str, object]) -> FetchBatch:  # pragma: no cover
+        """Fetch a normalized batch from Bluesky since the given cursor.
 
+        Parameters
+        ----------
+        cursor:
+            Opaque Bluesky cursor, or ``None`` to start from the beginning.
+        limit:
+            Maximum desired item count in this batch (provider may reduce).
+        filters:
+            Filter mapping (e.g., ``{"q": "term"}`` or ``{"author": {"handle": "@user"}}``).
+
+        Returns
+        -------
+        FetchBatch
+            Normalized items and cursor information.
+        """
+        raise NotImplementedError("BlueskyProvider.fetch_since is not implemented.")
