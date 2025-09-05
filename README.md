@@ -34,6 +34,57 @@ sonec.collect(provider="bluesky", source="evento2025", since="2025-05-01", limit
 rows = sonec.query("posts", provider="bluesky", since="2025-05-01", limit=50)
 ```
 
+### Autenticação (Bluesky)
+Alguns cenários no endpoint público podem retornar 403. É recomendável autenticar usando uma App Password do Bluesky:
+
+```powershell
+$env:BSKY_IDENTIFIER = "seu-handle.bsky.social"   # ou email
+$env:BSKY_APP_PASSWORD = "xxxx-xxxx-xxxx-xxxx"    # app password (não a senha principal)
+```
+
+Uma vez definidas, tanto a CLI quanto a API usarão o token Bearer automaticamente.
+
+## Exemplo (Bluesky)
+Coleta e análise simples (likes por autor) para um termo de busca no Bluesky.
+
+Pré‑requisitos: Python ≥ 3.11; pacote instalado (via `pip install sonec` ou `pip install -e .` no repositório).
+
+1) Configure as credenciais (recomendado para evitar 403 no endpoint público):
+
+PowerShell (sessão atual):
+
+```powershell
+$env:BSKY_IDENTIFIER = "seu-handle.bsky.social"  # ou seu e-mail
+$env:BSKY_APP_PASSWORD = "xxxx-xxxx-xxxx-xxxx"   # App Password (não a senha principal)
+```
+
+2) Execute o exemplo informando o termo:
+
+```powershell
+python examples/bluesky/collect_and_analyze.py --q "bolsonaro" --limit 100 --page-limit 25
+```
+
+Observações:
+- O exemplo inicializa o banco automaticamente via API. Para usar outro banco, defina `DATABASE_URL` (ex.: PostgreSQL) antes de executar.
+- Sem credenciais, algumas consultas podem retornar 403 no endpoint público; com App Password, o provider usa autenticação Bearer.
+
+### Exemplo (Status e Consulta)
+Explorar dados já coletados sem fazer chamadas de rede.
+
+1) Status (cursors e jobs recentes):
+```powershell
+python examples/bluesky/status_e_consulta.py status --provider bluesky --limit-jobs 10
+```
+
+2) Consulta de posts (filtrando e projetando colunas):
+```powershell
+python examples/bluesky/status_e_consulta.py query --provider bluesky --since 2025-05-01 --limit 20 --project id,created_at,text
+```
+
+Observações:
+- Ambos os comandos usam `DATABASE_URL` quando presente (senão, SQLite local em `./sonec.sqlite3`).
+- Para inspeções rápidas, use `--project` para limitar as colunas exibidas.
+
 ## Como desenvolver (devs)
 ```bash
 # Clonar e instalar em modo desenvolvimento

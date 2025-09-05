@@ -226,7 +226,9 @@ def collect(
     """
 
     if not settings.configured:
-        raise RuntimeError("Django is not configured. Call sonec.api.configure() first.")
+        raise RuntimeError(
+            "Django settings are not configured. Run 'sonec init' or call sonec.api.configure() first."
+        )
 
     from .core.models import Provider as ProviderModel, Source as SourceModel, Author as AuthorModel, Post as PostModel, Media as MediaModel, Cursor as CursorModel, FetchJob as FetchJobModel
     from .providers.base import ProviderOptions
@@ -236,8 +238,14 @@ def collect(
 
     # Resolve provider implementation and configure HTTP transport/auth if provided
     impl = resolve_provider(provider)
+    # Prepare provider options, allowing credentials via extras["auth"].
+    auth_conf = None
+    if extras and isinstance(extras.get("auth", None), dict):
+        auth_conf = extras.get("auth")
+    elif auth is not None:
+        auth_conf = {"enabled": bool(auth)}
     options = ProviderOptions(
-        auth={"enabled": bool(auth)} if auth is not None else None,
+        auth=auth_conf,
         http=(extras or {}).get("http") if extras else None,
         hints=None,
         scope_defaults=None,
@@ -488,7 +496,9 @@ def query(
     """
 
     if not settings.configured:
-        raise RuntimeError("Django is not configured. Call sonec.api.configure() first.")
+        raise RuntimeError(
+            "Django settings are not configured. Run 'sonec init' or call sonec.api.configure() first."
+        )
 
     if entity != "posts":
         raise NotImplementedError("Only 'posts' entity is supported.")
@@ -607,7 +617,9 @@ def status(*, provider: str | None = None, source: str | None = None, limit_jobs
     """
 
     if not settings.configured:
-        raise RuntimeError("Django is not configured. Call sonec.api.configure() first.")
+        raise RuntimeError(
+            "Django settings are not configured. Run 'sonec init' or call sonec.api.configure() first."
+        )
 
     from .core.models import Cursor as CursorModel, FetchJob as FetchJobModel
 

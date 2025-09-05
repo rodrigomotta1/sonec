@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sonec"
-version = "0.0.0"
+version = "0.0.1"
 description = "Coletor unificado de postagens de redes sociais com persistência canônica via Django e consultas internas via CLI/API."
 readme = "README.md"
 requires-python = ">=3.11"

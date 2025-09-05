@@ -1,12 +1,30 @@
 """Bluesky provider module.
 
-Implements data fetching from Bluesky's public endpoints and returns
-normalized batches according to the provider contract.
+Implements data fetching from Bluesky's endpoints and returns normalized
+batches according to the provider contract. Supports both unauthenticated
+access to the public AppView API and authenticated access via app password
+(recommended when public endpoints return 403 or are rate-limited).
+
+Authentication
+--------------
+Two ways to enable authentication:
+
+1) Environment variables:
+   - ``BSKY_IDENTIFIER``: your handle or email (e.g., ``alice.bsky.social``)
+   - ``BSKY_APP_PASSWORD``: an app password generated in Bluesky settings
+
+2) Programmatic options via ``ProviderOptions.auth``:
+   ``{"identifier": "<handle-or-email>", "password": "<app-password>"}``
+
+When authenticated, the provider obtains an access token using
+``com.atproto.server.createSession`` and sends ``Authorization: Bearer <token>``
+on subsequent requests against ``https://api.bsky.app``.
 """
 
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
+import os
 
 import httpx
 
@@ -23,6 +41,7 @@ from .base import (
     Author,
 )
 from ..utils.time import parse_utc
+from .. import __version__ as _pkg_version
 
 
 class BlueskyProvider(Provider):
@@ -38,6 +57,14 @@ class BlueskyProvider(Provider):
     def __init__(self) -> None:
         self._client: httpx.Client | None = None
         self._base_url: str = "https://public.api.bsky.app"
+        self._default_headers: dict[str, str] = {
+            "User-Agent": f"sonec/{_pkg_version} (+https://github.com/rodrigomotta1/sonec)",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        self._auth_state: str = "anonymous"
+        self._timeout_s: float | int = 10
+        self._transport: Any | None = None
 
     def configure(self, options: ProviderOptions) -> ProviderSession:  # pragma: no cover
         """Initialize a Bluesky provider session.
@@ -64,16 +91,34 @@ class BlueskyProvider(Provider):
         }
         http_conf = (options.http or {})
         self._base_url = str(http_conf.get("base_url", self._base_url))
-        timeout = http_conf.get("timeout_s", 10.0)
-        transport = http_conf.get("transport")
-        self._client = httpx.Client(base_url=self._base_url, timeout=timeout, transport=transport)
+        self._timeout_s = http_conf.get("timeout_s", 10.0)
+        self._transport = http_conf.get("transport")
+        headers = dict(self._default_headers)
+        headers.update(http_conf.get("headers", {}) or {})
+
+        warnings: list[str] = []
+        # Try to authenticate if credentials are present via options or env
+        auth_conf = options.auth or {}
+        identifier = str(auth_conf.get("identifier") or os.environ.get("BSKY_IDENTIFIER") or "")
+        password = str(auth_conf.get("password") or os.environ.get("BSKY_APP_PASSWORD") or os.environ.get("BSKY_PASSWORD") or "")
+        if identifier and password:
+            try:
+                token = self._login(identifier, password, timeout=self._timeout_s, transport=self._transport)
+                headers["Authorization"] = f"Bearer {token}"
+                self._base_url = "https://api.bsky.app"
+                self._auth_state = "authenticated"
+            except Exception as exc:
+                warnings.append(f"authentication_failed: {exc}")
+                self._auth_state = "anonymous"
+
+        self._client = httpx.Client(base_url=self._base_url, timeout=self._timeout_s, transport=self._transport, headers=headers)
         return ProviderSession(
             provider=self.NAME,
-            auth_state="anonymous",
+            auth_state=self._auth_state,
             capabilities=capabilities,
             rate_limit_policy=None,
             defaults={"page_limit_max": 100},
-            warnings=[],
+            warnings=warnings,
         )
 
     def fetch_since(self, cursor: str | None, limit: int, filters: Mapping[str, object]) -> FetchBatch:  # pragma: no cover
@@ -112,6 +157,10 @@ class BlueskyProvider(Provider):
             if cursor:
                 params["cursor"] = cursor
             resp = self._client.get("/xrpc/app.bsky.feed.searchPosts", params=params)
+            if resp.status_code == 403 and "Authorization" not in (self._client.headers or {}):
+                raise InvalidQuery(
+                    "Public search endpoint returned 403. Provide Bluesky app credentials via env (BSKY_IDENTIFIER, BSKY_APP_PASSWORD) or ProviderOptions.auth to authenticate."
+                )
             resp.raise_for_status()
             payload = resp.json()
             posts = payload.get("posts", [])
@@ -209,6 +258,25 @@ class BlueskyProvider(Provider):
                 )
             )
         return items
+
+    # Internal auth helper ---------------------------------------------------
+    def _login(self, identifier: str, password: str, *, timeout: float | int, transport: Any | None) -> str:
+        """Authenticate on Bluesky and return an access token.
+
+        Uses ``com.atproto.server.createSession`` on ``https://bsky.social``.
+        Requires an app password (generate it in Bluesky settings).
+        """
+        auth_headers = dict(self._default_headers)
+        with httpx.Client(base_url="https://bsky.social", timeout=timeout, transport=transport, headers=auth_headers) as c:
+            resp = c.post("/xrpc/com.atproto.server.createSession", json={"identifier": identifier, "password": password})
+            if resp.status_code == 401:
+                raise InvalidQuery("Invalid Bluesky credentials (use an app password, not your login password).")
+            resp.raise_for_status()
+            data = resp.json()
+            token = data.get("accessJwt")
+            if not token:
+                raise InvalidQuery("Authentication succeeded but no access token was returned.")
+            return str(token)
 
 
 def _as_int(v: Any) -> int | None:
