@@ -288,9 +288,10 @@ def collect(
             with transaction.atomic():
                 # Map Author external_ids -> AuthorModel ids
                 author_keys = {it.author.external_id for it in batch.items}
-                existing_authors = {
-                    a.external_id: a.id for a in AuthorModel.objects.filter(provider=prov_rec, external_id__in=author_keys)
-                }
+                existing_authors = dict(
+                    AuthorModel.objects.filter(provider=prov_rec, external_id__in=author_keys)
+                    .values_list("external_id", "id")
+                )
                 new_authors = []
                 for it in batch.items:
                     if it.author.external_id not in existing_authors:
@@ -306,8 +307,12 @@ def collect(
                 if new_authors:
                     AuthorModel.objects.bulk_create(new_authors, ignore_conflicts=True)
                     # Refresh map
-                    for a in AuthorModel.objects.filter(provider=prov_rec, external_id__in=author_keys):
-                        existing_authors[a.external_id] = a.id
+                    existing_authors.update(
+                        dict(
+                            AuthorModel.objects.filter(provider=prov_rec, external_id__in=author_keys)
+                            .values_list("external_id", "id")
+                        )
+                    )
 
                 # Deduplicate posts by (provider, external_id)
                 post_ids = [it.external_id for it in batch.items]
@@ -379,7 +384,7 @@ def collect(
             job.save(update_fields=["status", "finished_at", "stats"])
 
         return {
-            "job_id": job.id,
+            "job_id": getattr(job, "id", None),
             "provider": prov_rec.pk,
             "source": src_rec.descriptor,
             "inserted": total_inserted,
@@ -533,7 +538,8 @@ def query(
         next_token = None
     else:
         last = qs_page[-1]
-        next_token = encode_after_key(last.created_at, last.id) if more else None
+        last_id: Any = getattr(last, "id", None)
+        next_token = encode_after_key(last.created_at, last_id) if (more and last_id is not None) else None
 
     if not as_dict:
         return qs_page
@@ -564,7 +570,7 @@ def query(
             author_value = getattr(p.author, "pk", None)
 
         base = {
-            "id": p.id,
+            "id": getattr(p, "id", None),
             "provider": provider_value,
             "external_id": p.external_id,
             "author_id": author_value,
@@ -582,9 +588,7 @@ def query(
 
 
 def status(*, provider: str | None = None, source: str | None = None, limit_jobs: int = 10) -> dict:
-    """Return a summary of cursors and recent jobs.
-
-    Not implemented; raises :class:`NotImplementedError`.
+    """Return a summary snapshot of cursors and recent jobs.
 
     Parameters
     ----------
@@ -598,7 +602,50 @@ def status(*, provider: str | None = None, source: str | None = None, limit_jobs
     Returns
     -------
     dict
-        A JSON-serializable mapping with cursors and jobs snapshot.
+        Mapping with ``{"cursors": [...], "jobs": [...]}`` where each list
+        contains JSON-serializable dictionaries describing the entities.
     """
 
-    raise NotImplementedError("status() is not implemented yet.")
+    if not settings.configured:
+        raise RuntimeError("Django is not configured. Call sonec.api.configure() first.")
+
+    from .core.models import Cursor as CursorModel, FetchJob as FetchJobModel
+
+    # Cursors snapshot
+    cur_qs = CursorModel.objects.select_related("provider", "source")
+    if provider:
+        cur_qs = cur_qs.filter(provider__name=provider)
+    if source:
+        cur_qs = cur_qs.filter(source__descriptor=source)
+
+    cursors = [
+        {
+            "provider": (getattr(c, "provider_id", None) if getattr(c, "provider_id", None) is not None else getattr(c.provider, "pk", None)),
+            "source": c.source.descriptor,
+            "cursor": (c.position or {}).get("cursor"),
+            "updated_at": c.updated_at,
+        }
+        for c in cur_qs.order_by("provider__name", "source__descriptor")
+    ]
+
+    # Jobs snapshot
+    job_qs = FetchJobModel.objects.select_related("provider", "source")
+    if provider:
+        job_qs = job_qs.filter(provider__name=provider)
+    if source:
+        job_qs = job_qs.filter(source__descriptor=source)
+
+    jobs = [
+        {
+            "id": getattr(j, "id", None),
+            "provider": (getattr(j, "provider_id", None) if getattr(j, "provider_id", None) is not None else getattr(j.provider, "pk", None)),
+            "source": j.source.descriptor,
+            "started_at": j.started_at,
+            "finished_at": j.finished_at,
+            "status": j.status,
+            "stats": j.stats or {},
+        }
+        for j in job_qs.order_by("-started_at")[:limit_jobs]
+    ]
+
+    return {"cursors": cursors, "jobs": jobs}
