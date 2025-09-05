@@ -67,9 +67,6 @@ def test_model_crud_and_uniqueness_constraints() -> None:
 
 def test_api_scaffolds_raise_not_implemented() -> None:
     api.configure()
-
-    with pytest.raises(NotImplementedError):
-        api.collect(provider="bluesky", source="@example")
     # query is implemented; it should return a dict with pagination info
     page = api.query("posts", provider="bluesky", limit=1, as_dict=True)
     assert isinstance(page, dict)
