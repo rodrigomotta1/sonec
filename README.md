@@ -1,58 +1,60 @@
-# django-sonec — Social Network Collectors
+# sonec
 
-Pacote Django plugável para coleta genérica de posts em redes sociais. O projeto é focado nas postagens e extensível para outros provedores de postagens.
+Coletor unificado de postagens de redes sociais com **armazenamento canônico** (Django ORM) e **consultas internas** via CLI/API — sem arquivos intermediários (CSV) como fluxo principal.
 
+## O que é, objetivo, o que **não** faz e público‑alvo
+**O que é.** Pacote Python (CLI e API) que coleta postagens de múltiplos provedores e as persiste em um **modelo único**. Por padrão, usa **SQLite**; pode operar com **PostgreSQL** via `--db` ou `DATABASE_URL` sem mudar a experiência de uso.  
+**Objetivo.** Reduzir o overhead de configuração para pesquisa/análise, oferecendo coleta + armazenamento + **consulta direta** no próprio sonec.  
+**Não faz.** Download de mídia pesada; *scraping* fora dos escopos suportados; uso principal **não** é exportar CSV.  
+**Público‑alvo.** Pesquisadores(as), analistas de dados e desenvolvedores que precisam coletar e **consultar** dados de redes com baixa fricção.
 
-## Contexto
-Objetivo: oferecer uma base mínima para ingestão e armazenamento de posts com foco em idempotência e modelo de dados enxuto.
-
-## Requisitos
-- Python >= 3.11
-- Django >= 5.0, < 6.0
-- Django REST Framework >= 3.15, < 4.0
-- Requests >= 2.31, < 3.0
-
-Extras opcionais (fila/worker): `celery`, `rq`, `dramatiq` (com `redis`).
-Extras de desenvolvimento: `pytest`, `ruff`, `black`, `isort`, `requests-mock`.
-
-## Instalação
-Instale a partir do repositório (recomendado utilizar um ambiente virtual):
-
+## Como começar (usuários)
+Requisitos: Python ≥ 3.11.
 ```bash
-git clone <URL_DO_REPO> && cd sonec
-pip install -e .
+# Instalar e inicializar
+pip install sonec
+sonec init
+sonec status
 
-# opcional
-pip install -e .[dev]
+# Coletar (ex.: Bluesky por escopo)
+sonec collect bluesky --source evento2025 --since 2025-05-01
+
+# Consultar diretamente (sem arquivos intermediários)
+sonec query posts --provider bluesky --since 2025-05-01 --limit 50
+
+# Dicas: sempre filtre por --provider e por janela temporal.
+# Opcional: usar PostgreSQL mantendo a mesma CLI
+sonec status --db postgresql://user:pass@host:5432/sonec
+# ou exporte DATABASE_URL no ambiente
 ```
-
-## Configuração inicial
-Adicione o app e rode as migrações:
-
+Consultas também podem ser feitas pela **API Python** (objetos/iteráveis ORM):
 ```python
-# settings.py
-INSTALLED_APPS = [
-    # ...
-    "rest_framework",
-    "sonec",
-]
+import sonec
+sonec.collect(provider="bluesky", source="evento2025", since="2025-05-01", limit=100)
+rows = sonec.query("posts", provider="bluesky", since="2025-05-01", limit=50)
 ```
 
+## Como desenvolver (devs)
 ```bash
-python manage.py migrate
+# Clonar e instalar em modo desenvolvimento
+git clone <URL_DO_REPOSITORIO>
+cd sonec
+pip install -e .[dev]  # ou: pip install -e .
+
+# Teste rápido de ponta a ponta
+sonec init
+sonec collect bluesky --source exemplo --limit 10
+sonec query posts --provider bluesky --limit 5
 ```
 
-Se desejar expor a API REST, inclua as rotas:
+### Providers (extensão)
+- Implementar o contrato mínimo do coletor: `configure(...)`, `fetch_since(cursor, limit, **filtros)` e **normalização** para o modelo canônico (`Post`, `Author`, `Media`, etc.).  
+- Registrar o nome do provider no **registry** do sonec para habilitar `sonec collect <nome>` e `sonec query --provider <nome>`.
 
-```python
-# urls.py
-from django.urls import include, path
+### Boas práticas
+- Deduplicação garantida por `UNIQUE(provider, external_id)`; a ingestão deve respeitar essa chave.  
+- Consultas internas com filtros mínimos (`provider` e/ou intervalo `created_at`) e **paginação por keyset** (em vez de `OFFSET`) para conjuntos grandes.
 
-urlpatterns = [
-    path("api/sonec/", include("sonec.api.urls")),
-]
-```
+---
 
-## Licença
-MIT. Veja o arquivo de licença do repositório.
-
+> Consulte a Wiki do projeto para cenários de uso, arquitetura, modelo de dados, glossário e manual detalhado.

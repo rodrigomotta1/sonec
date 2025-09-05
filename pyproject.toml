@@ -1,61 +1,76 @@
 [build-system]
-requires = ["hatchling>=1.24.2"]
+requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "django-sonec"
-version = "0.1.0"
-description = "Social Network Collectors: Django app for generic social post collection"
+name = "sonec"
+version = "0.0.0"
+description = "Coletor unificado de postagens de redes sociais com persistência canônica via Django e consultas internas via CLI/API."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
-authors = [
-  { name = "Rodrigo Motta", email = "rcorrea@inf.puc-rio.br" }
-]
+license = { text = "MIT" }
+authors = [{ name = "Rodrigo Motta", "email" = "rcorrea@inf.puc-rio.br" }]
+keywords = ["social-media", "data-collection", "django", "cli", "research"]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Framework :: Django",
-  "Framework :: Django :: 5",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
-  "Typing :: Typed"
+  "Programming Language :: Python :: 3.11",
+  "Framework :: Django"
 ]
+
 dependencies = [
   "Django>=5.0,<6.0",
-  "djangorestframework>=3.15,<4.0",
-  "requests>=2.31.0,<3.0",
+  "typer>=0.12",
+  "rich>=13.0",
+  "python-dotenv>=1.0",
+  "dj-database-url>=2.1"
 ]
 
-[project.urls]
-Source = ""
-Issues = ""
-
 [project.optional-dependencies]
-# Queue runners (optional). Users install only if they need them.
-celery = ["celery>=5.3", "redis>=5.0"]
-rq = ["rq>=1.15.1", "redis>=5.0"]
-dramatiq = ["dramatiq>=1.16.0", "redis>=5.0"]
+postgres = ["psycopg[binary]>=3.2"]
 dev = [
   "pytest>=8.0",
   "pytest-django>=4.8",
-  "requests-mock>=1.11.0",
-  "ruff>=0.5.0",
+  "ruff>=0.5",
   "black>=24.3",
-  "isort>=5.13",
+  "mypy>=1.10",
+  "types-requests>=2.32",
+  "ipython>=8.20"
 ]
+
+[project.urls]
+Homepage = "https://github.com/rodrigomotta1/sonec"
+Repository = "https://github.com/rodrigomotta1/sonec"
+Issues = "https://github.com/rodrigomotta1/sonec/issues"
+
+[project.scripts]
+sonec = "sonec.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sonec"]
 
 [tool.ruff]
 line-length = 120
-select = ["E","F","I","UP","B"]
-ignore = ["E501"]
+target-version = "py311"
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E203"]
 
 [tool.black]
 line-length = 120
 target-version = ["py311"]
 
-[tool.isort]
-profile = "black"
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
