@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from sonec import api
+from sonec.api import QueryResultPage
 
 
 def _seed_posts():
@@ -47,7 +48,7 @@ def test_query_posts_keyset_pagination() -> None:
     _seed_posts()
 
     # Page 1
-    page1 = api.query(
+    page1: QueryResultPage = api.query(
         "posts",
         provider="bluesky",
         limit=2,
@@ -59,7 +60,7 @@ def test_query_posts_keyset_pagination() -> None:
     assert page1["next_after_key"]
 
     # Page 2 using after_key
-    page2 = api.query(
+    page2: QueryResultPage = api.query(
         "posts",
         provider="bluesky",
         limit=2,
@@ -71,7 +72,7 @@ def test_query_posts_keyset_pagination() -> None:
     assert page2["items"][0]["created_at"] >= page2["items"][1]["created_at"]
 
     # Page 3 should have the remainder and no next key
-    page3 = api.query(
+    page3: QueryResultPage = api.query(
         "posts",
         provider="bluesky",
         limit=2,
@@ -90,7 +91,7 @@ def test_query_posts_filters_and_projection() -> None:
 
     since = datetime(2025, 5, 1, 11, 56, 0, tzinfo=timezone.utc)  # filters out the last item or two
 
-    page = api.query(
+    page: QueryResultPage = api.query(
         "posts",
         provider="bluesky",
         since_utc=since,

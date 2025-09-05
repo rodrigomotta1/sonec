@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Iterable, Literal, Sequence, Any
+from typing import Iterable, Literal, Sequence, Any, overload, TypedDict
 
 import django
 from django.conf import settings
@@ -147,6 +147,26 @@ def configure(db_url: str | None = None, *, settings: dict | None = None) -> Run
     return _ensure_configured(db_url, additional_settings=settings)
 
 
+class QueryResultPage(TypedDict):
+    """Typed mapping representing a paginated query result.
+
+    Attributes
+    ----------
+    items:
+        List of rows represented as dictionaries according to the selected
+        projection.
+    next_after_key:
+        Opaque keyset token to retrieve the next page or ``None`` when there
+        is no subsequent page.
+    count:
+        Number of items in this page.
+    """
+
+    items: list[dict[str, Any]]
+    next_after_key: str | None
+    count: int
+
+
 def collect(
     *,
     provider: str,
@@ -205,6 +225,38 @@ def collect(
     raise NotImplementedError("collect() is not implemented yet.")
 
 
+@overload
+def query(
+    entity: Literal["posts", "authors", "jobs", "cursors"],
+    *,
+    provider: str | None = ...,
+    since_utc: datetime | str | None = ...,
+    until_utc: datetime | str | None = ...,
+    author: str | None = ...,
+    contains: str | None = ...,
+    limit: int = ...,
+    after_key: str | None = ...,
+    project: Sequence[str] | None = ...,
+    as_dict: Literal[True] = ...,  # type: ignore[assignment]
+) -> QueryResultPage: ...
+
+
+@overload
+def query(
+    entity: Literal["posts", "authors", "jobs", "cursors"],
+    *,
+    provider: str | None = ...,
+    since_utc: datetime | str | None = ...,
+    until_utc: datetime | str | None = ...,
+    author: str | None = ...,
+    contains: str | None = ...,
+    limit: int = ...,
+    after_key: str | None = ...,
+    project: Sequence[str] | None = ...,
+    as_dict: Literal[False],
+) -> Iterable: ...
+
+
 def query(
     entity: Literal["posts", "authors", "jobs", "cursors"],
     *,
@@ -217,7 +269,7 @@ def query(
     after_key: str | None = None,
     project: Sequence[str] | None = None,
     as_dict: bool = True,
-) -> dict | Iterable:
+) -> QueryResultPage | Iterable:
     """Query the canonical store and return a page of results.
 
     For ``entity == "posts"``, results are ordered by ``created_at DESC, id DESC``
