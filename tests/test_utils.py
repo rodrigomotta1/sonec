@@ -37,3 +37,7 @@ def test_decode_after_key_invalid_token_raises() -> None:
     with pytest.raises(ValueError):
         decode_after_key("not-a-valid-token")
 
+
+def test_parse_utc_invalid_string_raises() -> None:
+    with pytest.raises(ValueError):
+        parse_utc("invalid-timestamp")

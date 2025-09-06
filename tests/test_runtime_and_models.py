@@ -71,3 +71,9 @@ def test_api_scaffolds_raise_not_implemented() -> None:
     page = api.query("posts", provider="bluesky", limit=1, as_dict=True)
     assert isinstance(page, dict)
     assert set(page.keys()) == {"items", "next_after_key", "count"}
+
+
+def test_query_unsupported_entity_raises() -> None:
+    api.configure()
+    with pytest.raises(NotImplementedError):
+        api.query("authors", provider="bluesky", limit=1, as_dict=True)

@@ -106,3 +106,33 @@ def test_query_posts_filters_and_projection() -> None:
     for item in page["items"]:
         assert "id" in item and "text" in item and "created_at" in item
         assert "hello" in item["text"].lower()
+
+
+def test_query_author_filter_variants() -> None:
+    api.configure()
+    rows = _seed_posts()
+
+    # Filter by external_id (did)
+    page_did: QueryResultPage = api.query(
+        "posts",
+        provider="bluesky",
+        author="did:plc:1",
+        limit=50,
+        as_dict=True,
+        project=["id", "author_id"],
+    )
+    assert page_did["count"] >= 1
+
+    # Filter by numeric author id
+    from sonec.core.models import Author
+
+    aid = Author.objects.get(external_id="did:plc:1").id
+    page_num: QueryResultPage = api.query(
+        "posts",
+        provider="bluesky",
+        author=str(aid),
+        limit=50,
+        as_dict=True,
+        project=["id", "author_id"],
+    )
+    assert page_num["count"] >= 1
