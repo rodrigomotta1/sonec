@@ -1,21 +1,39 @@
 """Collect and analyze Bluesky posts by search term.
 
-This example demonstrates how a researcher can use the sonec Python API to:
+What it does
+------------
+- Configures the datastore via ``sonec.api.configure`` (SQLite by default).
+- Collects a sample of posts from Bluesky using a search term.
+- Queries recent posts and aggregates "total likes by author".
 
-- Initialize the local datastore (SQLite by default) via ``sonec.api.configure``.
-- Collect a small sample of posts from Bluesky using an arbitrary search term.
-- Query the recent posts and produce a simple analysis: total likes per account.
+How to run
+----------
+1) Install dependencies and activate your environment, then install this repo:
+   - ``python -m pip install -e .``
 
-Authentication
---------------
-- Optional but recommended. Set these environment variables to use an App Password:
-  - ``BSKY_IDENTIFIER``: your handle or email (e.g., ``alice.bsky.social``)
-  - ``BSKY_APP_PASSWORD``: app password generated in Bluesky settings
+2) (Recommended) Set Bluesky App Password in your shell session:
+   - Windows PowerShell::
+       $env:BSKY_IDENTIFIER = "your-handle.bsky.social"   # or your e-mail
+       $env:BSKY_APP_PASSWORD = "xxxx-xxxx-xxxx-xxxx"
+   - Linux/macOS (bash/zsh)::
+       export BSKY_IDENTIFIER="your-handle.bsky.social"
+       export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 
-Database
---------
-- Uses ``DATABASE_URL`` when present (e.g., ``sqlite:///./sonec.sqlite3``),
-  otherwise defaults to a local SQLite file at ``./sonec.sqlite3``.
+3) Run the example from the repository root, for example:
+   - ``python examples/bluesky/collect_and_analyze.py --q "term" --limit 100 --page-limit 25 --days 14 --analysis-limit 500``
+   - Optional: set ``--db postgresql://user:pass@host:5432/sonec`` or use ``DATABASE_URL``.
+
+What you will see
+-----------------
+- Initialization line showing backend and database path.
+- Collection report with ``inserted``, ``conflicts`` and ``last_cursor``.
+- Summary with number of posts analyzed and accounts found.
+- A "Top accounts by total likes" list, where likes are based on the provider's ``likeCount`` metric aggregated per author handle.
+
+Notes
+-----
+- Authentication is optional but recommended to avoid 403 from the public endpoint.
+- If no ``DATABASE_URL`` is set, the example uses ``sqlite:///./sonec.sqlite3``.
 """
 
 from __future__ import annotations
@@ -125,4 +143,3 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - example script
     main()
-

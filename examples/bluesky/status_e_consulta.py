@@ -1,12 +1,26 @@
 """Exemplo: status e consulta de dados já coletados (Bluesky).
 
-Este exemplo mostra como um pesquisador pode:
+O que faz
+---------
+- Configura o banco via API (usa `DATABASE_URL` quando presente, senão SQLite local).
+- Exibe um snapshot de status (cursors e jobs recentes) com `api.status(...)`.
+- Executa consultas filtradas sobre `posts` com `api.query(...)` e projeta colunas.
+- Não realiza coleta; usa apenas os dados previamente persistidos.
 
-- Inicializar o banco via API (lendo `DATABASE_URL` quando presente).
-- Ver um snapshot de status (cursors e últimos jobs) com `api.status(...)`.
-- Executar consultas filtradas sobre `posts` com `api.query(...)` e projetar colunas.
+Como executar
+-------------
+1) Instale o projeto no ambiente ativo: `python -m pip install -e .`
+2) Execute a partir da raiz do repositório:
+   - Status (cursors e jobs):
+     `python examples/bluesky/status_e_consulta.py status --provider bluesky --limit-jobs 10`
+   - Consulta:
+     `python examples/bluesky/status_e_consulta.py query --provider bluesky --since 2025-05-01 --limit 20 --project id,created_at,text`
+   - Opcional: informar `--db` (ou `DATABASE_URL`) para outro banco.
 
-Não realiza coleta; usa apenas os dados previamente persistidos.
+Resultados esperados
+--------------------
+- Em `status`: tabelas textuais com cursores (provider, source, cursor, updated_at) e lista de jobs (id, provider, source, timestamps, status e estatísticas).
+- Em `query`: uma lista tabular de linhas projetadas com as colunas solicitadas; quando houver mais páginas, um `next_after_key` será exibido para paginação.
 """
 
 from __future__ import annotations
@@ -131,4 +145,3 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - script manual
     main()
-

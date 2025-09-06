@@ -252,6 +252,10 @@ def collect(
     )
     session = impl.configure(options)
 
+    # Normalize optional temporal bounds for local filtering when provider lacks native support
+    since_dt = parse_utc(since_utc)
+    until_dt = parse_utc(until_utc)
+
     # Ensure Provider and Source rows exist
     prov_rec, _ = ProviderModel.objects.get_or_create(
         name=session.provider,
@@ -331,6 +335,11 @@ def collect(
                 to_create_posts: list[PostModel] = []
                 idx_map: list[tuple[str, int]] = []  # (external_id, future pk index)
                 for it in batch.items:
+                    # Apply local temporal window, if provided
+                    if since_dt is not None and it.created_at < since_dt:
+                        continue
+                    if until_dt is not None and it.created_at > until_dt:
+                        continue
                     if it.external_id in existing_posts:
                         total_conflicts += 1
                         continue
@@ -369,6 +378,14 @@ def collect(
             else:
                 cursor_token = None
 
+            # Mark boundary reached when provider signals or when batch spans beyond the lower time bound
+            if since_dt is not None:
+                try:
+                    oldest = min((it.created_at for it in batch.items), default=None)
+                except Exception:
+                    oldest = None
+                if oldest is not None and oldest < since_dt:
+                    reached_until_flag = True
             reached_until_flag = reached_until_flag or bool(batch.reached_until)
             remaining -= len(batch.items)
 
